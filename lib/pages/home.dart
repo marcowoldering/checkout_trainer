@@ -1,4 +1,6 @@
+import 'package:checout_trainer/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -7,71 +9,151 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/dartbord.jpg'), // Path to your image
-            fit: BoxFit.cover, // Makes the image cover the entire background
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.7), // Semi-transparent background
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      "Checkout Trainer",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Roboto', // Specify a custom font if needed
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+        decoration: AppDecorations.gradientBackground,
+        child: Stack(
+          children: [
+            // Subtle radial glow accent
+            Positioned(
+              bottom: -100,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 400,
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.center,
+                    radius: 1.0,
+                    colors: [
+                      AppColors.crimsonRed.withOpacity(0.15),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
-                const Spacer(flex: 1),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              ),
+            ),
+            SafeArea(
+              child: Center(
+                child: Column(
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Navigate to TrainerPage
-                        Navigator.pushNamed(context, '/trainer');
-                      },
-                      icon: Icon(Icons.sports),
-                      label: Text("Start Training"),
+                    const SizedBox(height: 60),
+                    // Glass-style title card with gold border glow
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 20,
+                        horizontal: 32,
+                      ),
+                      decoration: AppDecorations.glassCard,
+                      child: Column(
+                        children: [
+                          Text(
+                            "CHECKOUT",
+                            style: GoogleFonts.chivo(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.pureWhite,
+                              letterSpacing: 4,
+                            ),
+                          ),
+                          Text(
+                            "TRAINER",
+                            style: GoogleFonts.chivo(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.amberGold,
+                              letterSpacing: 8,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        // Navigate to CheckoutsPage
-                        Navigator.pushNamed(context, '/checkouts');
-                      },
-                      icon: Icon(Icons.view_list),
-                      label: Text("Checkouts"),
+                    const Spacer(flex: 1),
+                    // Premium gradient buttons
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: Column(
+                        children: [
+                          _buildPremiumButton(
+                            context,
+                            icon: Icons.sports,
+                            label: "Start Training",
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/trainer');
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildPremiumButton(
+                            context,
+                            icon: Icons.view_list,
+                            label: "Checkouts",
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/checkouts');
+                            },
+                            isPrimary: false,
+                          ),
+                        ],
+                      ),
                     ),
-                    // SizedBox(height: 20),
-                    // ElevatedButton.icon(
-                    //   onPressed: () {
-                    //     // Navigate to SettingsPage
-                    //     Navigator.pushNamed(context, '/settings');
-                    //   },
-                    //   icon: Icon(Icons.settings),
-                    //   label: Text("Settings"),
-                    // ),
+                    const Spacer(flex: 2),
                   ],
                 ),
-                const Spacer(flex: 2),
-              ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    bool isPrimary = true,
+  }) {
+    return Container(
+      width: double.infinity,
+      height: 60,
+      decoration: BoxDecoration(
+        gradient: isPrimary ? AppColors.crimsonGradient : null,
+        color: isPrimary ? null : AppColors.charcoal,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: isPrimary
+                ? AppColors.crimsonRed.withOpacity(0.4)
+                : Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+        border: isPrimary
+            ? null
+            : Border.all(color: AppColors.gunmetal, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: AppColors.pureWhite,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: GoogleFonts.chivo(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.pureWhite,
+                ),
+              ),
+            ],
           ),
         ),
       ),

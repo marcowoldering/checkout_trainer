@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(pod install)",
+      "Bash(flutter run:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(pod install:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter build:*)",
+      "Bash(xcrun devicectl device info processes:*)",
+      "Bash(flutter --version:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(open:*)",
+      "Bash(flutter upgrade:*)",
+      "Bash(ls:*)"
     ]
   }
 }

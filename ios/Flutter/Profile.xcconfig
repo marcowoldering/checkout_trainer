@@ -1,0 +1,2 @@
+#include? "Pods/Target Support Files/Pods-Checkout Trainer/Pods-Checkout Trainer.profile.xcconfig"
+#include "Generated.xcconfig"

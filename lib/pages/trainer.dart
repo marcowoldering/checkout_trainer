@@ -1,11 +1,12 @@
+import 'dart:math' as math;
+
+import 'package:checout_trainer/helpers/dart_scoring.dart';
 import 'package:checout_trainer/helpers/darts_checkouts.dart';
 import 'package:checout_trainer/repositories/custom_checkout_repository.dart';
+import 'package:checout_trainer/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:linear_timer/linear_timer.dart';
-
-void main() {
-  runApp(const MaterialApp(home: TrainerPage()));
-}
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 class TrainerPage extends StatefulWidget {
   const TrainerPage({Key? key}) : super(key: key);
@@ -15,11 +16,11 @@ class TrainerPage extends StatefulWidget {
 }
 
 class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin, WidgetsBindingObserver {
-  final CustomCheckoutRepository _repository = CustomCheckoutRepository();
-
   final List<int> numbers = List.generate(20, (index) => index + 1);
-  late LinearTimerController timerController = LinearTimerController(this);
-  Duration timerDuration = const Duration(seconds: 30);
+  late AnimationController _timerController;
+  static const Duration timerDuration = Duration(seconds: 30);
+
+  CustomCheckoutRepository get _repository => context.read<CustomCheckoutRepository>();
 
   int score = 0;
   List<String> solution = [];
@@ -29,52 +30,53 @@ class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    timerController.dispose();
-
+    _timerController.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
-    _loadCheckouts();
-
+    _timerController = AnimationController(
+      vsync: this,
+      duration: timerDuration,
+    );
+    _timerController.addStatusListener(_onTimerStatusChanged);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      timerController.start();
+      _loadCheckouts();
+      _timerController.forward();
     });
+  }
+
+  void _onTimerStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _showTimeUpDialog();
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      // App is in the background or user is leaving the app
-      timerController.stop();
+      _timerController.stop();
     } else if (state == AppLifecycleState.resumed) {
-      // App is in the foreground again
-      timerController.start();
+      if (_timerController.value < 1.0) {
+        _timerController.forward();
+      }
     } else if (state == AppLifecycleState.inactive) {
-      // App is in an inactive state (e.g., during a phone call)
-      timerController.stop();
+      _timerController.stop();
     } else if (state == AppLifecycleState.detached) {
-      // App is detached (not common for typical apps)
-      timerController.stop();
+      _timerController.stop();
     }
   }
 
   Future<void> _loadCheckouts() async {
-    await _repository.initCheckouts(); // Ensure checkouts are loaded
+    await _repository.initCheckouts();
     generateRandomCheckout();
   }
 
   int _calculateInputSum() {
-    return inputs.fold(0, (int sum, String item) {
-      if (item == 'Bull') return sum + 50;
-      if (item == '25') return sum + 25;
-      final int value = int.parse(item.replaceAll(RegExp(r'[DT]'), ''));
-      final int multiplier = item.startsWith('D') ? 2 : item.startsWith('T') ? 3 : 1;
-      return sum + value * multiplier;
-    });
+    return DartScoring.calculateScore(inputs);
   }
 
   bool _canFinishWithDouble(int remaining) {
@@ -93,12 +95,13 @@ class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin
   }
 
   void addInput(String value) {
-    if (inputs.length < solution.length) {
+    if (inputs.length < 3) {
       setState(() {
         inputs.add(value);
 
         final remaining = score - _calculateInputSum();
-        if (_canFinishWithDouble(remaining)) {
+        final bool isLastDart = inputs.length == solution.length - 1;
+        if (isLastDart && _canFinishWithDouble(remaining)) {
           modifier = 'Double';
         }
       });
@@ -109,42 +112,73 @@ class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin
     if (inputs.isNotEmpty) {
       setState(() {
         inputs.removeLast();
+        final remaining = score - _calculateInputSum();
+        final bool isLastDart = inputs.length == solution.length - 1;
+        modifier = (isLastDart && _canFinishWithDouble(remaining)) ? 'Double' : 'Single';
       });
     }
   }
 
   void submit() {
-    timerController.stop();
+    _timerController.stop();
     bool arraysMatch(List<String> a, List<String> b) => a.join(', ') == b.join(', ');
 
-    int calculateScore(List<String> items) {
-      return items.fold(0, (int sum, String item) {
-        if (item == 'Bull') return sum + 50;
-        if (item == '25') return sum + 25;
-
-        final int value = int.parse(item.replaceAll(RegExp(r'[DT]'), ''));
-        final int multiplier = item.startsWith('D') ? 2 : item.startsWith('T') ? 3 : 1;
-        return sum + value * multiplier;
-      });
-    }
-
-    void showResultDialog(String title, Icon icon, Widget content, VoidCallback onNext) {
+    void showResultDialog(String title, IconData icon, Color iconColor, Widget content, String buttonLabel, VoidCallback onPressed) {
       showDialog(
         barrierDismissible: false,
         context: context,
         builder: (context) => AlertDialog(
+          backgroundColor: AppColors.richBlack,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: iconColor.withOpacity(0.5), width: 2),
+          ),
           title: Row(
             children: [
-              icon,
-              const SizedBox(width: 8.0),
-              Text(title),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 28),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: GoogleFonts.chivo(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.pureWhite,
+                ),
+              ),
             ],
           ),
           content: content,
           actions: [
-            TextButton(
-              onPressed: onNext,
-              child: const Text("Next"),
+            Container(
+              width: double.infinity,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: AppColors.crimsonGradient,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onPressed,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Center(
+                    child: Text(
+                      buttonLabel,
+                      style: GoogleFonts.chivo(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.pureWhite,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -154,359 +188,678 @@ class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin
     if (arraysMatch(inputs, solution)) {
       showResultDialog(
         "Correct!",
-        const Icon(Icons.check, color: Colors.green),
-        const Text("You matched the checkout!"),
+        Icons.check_circle,
+        AppColors.emeraldGreen,
+        const Text(
+          "You matched the checkout!",
+          style: TextStyle(color: AppColors.pureWhite),
+        ),
+        "Next",
         () {
           modifier = 'Single';
           Navigator.of(context).pop();
           generateRandomCheckout();
-          timerController.reset();
-          timerController.start();
+          _timerController.reset();
+          _timerController.forward();
         },
       );
       return;
     }
 
-    final int total = calculateScore(inputs);
-    final int solutionTotal = calculateScore(solution);
+    final int total = DartScoring.calculateScore(inputs);
+    final int solutionTotal = DartScoring.calculateScore(solution);
 
     if (total == solutionTotal) {
       showResultDialog(
         "Correct!",
-        const Icon(Icons.check, color: Colors.green),
+        Icons.check_circle,
+        AppColors.emeraldGreen,
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("You matched the checkout!"),
-            const SizedBox(height: 8.0),
-            const Text("Recommended sequence:"),
+            const Text(
+              "You matched the checkout!",
+              style: TextStyle(color: AppColors.pureWhite),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "Recommended sequence:",
+              style: TextStyle(color: AppColors.mutedGrey),
+            ),
+            const SizedBox(height: 4),
             Text(
               solution.join(' | '),
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: GoogleFonts.chivo(
+                fontWeight: FontWeight.bold,
+                color: AppColors.amberGold,
+              ),
             ),
           ],
         ),
+        "Next",
         () {
           modifier = 'Single';
           Navigator.of(context).pop();
           generateRandomCheckout();
-          timerController.reset();
-          timerController.start();
+          _timerController.reset();
+          _timerController.forward();
         },
       );
       return;
     }
 
+    showResultDialog(
+      "Incorrect!",
+      Icons.cancel,
+      AppColors.crimsonRed,
+      Text(
+        "You scored $total but needed $solutionTotal.",
+        style: const TextStyle(color: AppColors.pureWhite),
+      ),
+      "Try Again",
+      () {
+        Navigator.of(context).pop();
+        _timerController.forward();
+      },
+    );
+  }
+
+  void _showTimeUpDialog() {
     showDialog(
       barrierDismissible: false,
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppColors.richBlack,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.crimsonRed.withOpacity(0.5), width: 2),
+        ),
         title: Row(
           children: [
-            const Icon(Icons.close, color: Colors.red),
-            const SizedBox(width: 8.0),
-            const Text("Incorrect!"),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.crimsonRed.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.timer_off, color: AppColors.crimsonRed, size: 28),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              "Time's Up!",
+              style: GoogleFonts.chivo(
+                fontWeight: FontWeight.bold,
+                color: AppColors.pureWhite,
+              ),
+            ),
           ],
         ),
-        content: const Text("You did not match the checkout."),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "You ran out of time!",
+              style: TextStyle(color: AppColors.pureWhite),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "The correct sequence was:",
+              style: TextStyle(color: AppColors.mutedGrey),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              solution.join(' | '),
+              style: GoogleFonts.chivo(
+                fontWeight: FontWeight.bold,
+                color: AppColors.amberGold,
+              ),
+            ),
+          ],
+        ),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              timerController.start();
-            },
-            child: const Text("Try Again"),
+          Container(
+            width: double.infinity,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: AppColors.crimsonGradient,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  generateRandomCheckout();
+                  _timerController.reset();
+                  _timerController.forward();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Center(
+                  child: Text(
+                    "Next",
+                    style: GoogleFonts.chivo(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.pureWhite,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Color _getChipBorderColor(String input) {
+    if (input.startsWith('D') || input == 'Bull') {
+      return AppColors.crimsonRed;
+    } else if (input.startsWith('T')) {
+      return AppColors.emeraldGreen;
+    }
+    return AppColors.gunmetal;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/dartbord.jpg'), // Path to your image
-            fit: BoxFit.cover, // Makes the image cover the entire background
-          ),
-        ),
+        decoration: AppDecorations.gradientBackground,
         child: SafeArea(
           child: Column(
             children: [
+              // Score Display with circular timer
               Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: LinearTimer(
-                  duration: timerDuration,
-                  controller: timerController,
-                  forward: false,
-                  minHeight: 16.0,
-                  onTimerEnd: () {
-                    showDialog(
-                      barrierDismissible: false,
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Row(
-                          children: [
-                            const Icon(Icons.timer_outlined, color: Colors.red),
-                            const SizedBox(width: 8.0),
-                            const Text("Time's Up!"),
-                          ],
-                        ),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("You ran out of time!"),
-                            const SizedBox(height: 8.0),
-                            const Text("The correct sequence was:"),
-                            Text(
-                              solution.join(' | '),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                              generateRandomCheckout();
-                              timerController.reset();
-                              timerController.start();
-                            },
-                            child: const Text("Continue"),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-              // Top: Score Display
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Stack(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                child: Row(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20), // Padding around text
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface, // Secondary color
-                            borderRadius: BorderRadius.circular(12), // Rounded corners
-                          ),
-                          child: Text(
-                            "Checkout: $score",
-                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorScheme.primary),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Container(
-                            // padding: EdgeInsets.symmetric(vertical: 10, horizontal: 20), // Padding around text
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surface, // Secondary color
-                              borderRadius: BorderRadius.circular(12), // Rounded corners
-                            ),
-                            child: IconButton(
-                              icon: Icon(Icons.arrow_back, color: colorScheme.primary),
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                            ),
-                          ),
-                        ],
+                    // Back button on the left
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.charcoal,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.gunmetal),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: AppColors.pureWhite),
+                        tooltip: 'Go back',
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ),
+                    // Timer in the center (Expanded + Center)
+                    Expanded(
+                      child: Center(
+                        child: SizedBox(
+                          width: 180,
+                          height: 180,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Background track
+                              SizedBox(
+                                width: 180,
+                                height: 180,
+                                child: CircularProgressIndicator(
+                                  value: 1.0,
+                                  strokeWidth: 6,
+                                  color: AppColors.charcoal,
+                                  strokeCap: StrokeCap.round,
+                                ),
+                              ),
+                              // Animated timer ring
+                              AnimatedBuilder(
+                                animation: _timerController,
+                                builder: (context, child) {
+                                  return SizedBox(
+                                    width: 180,
+                                    height: 180,
+                                    child: CustomPaint(
+                                      painter: _CircularTimerPainter(
+                                        progress: 1.0 - _timerController.value,
+                                        color: AppColors.amberGold,
+                                        strokeWidth: 6,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              // Checkout score display
+                              Container(
+                                width: 168,
+                                height: 168,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.richBlack,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        "CHECKOUT",
+                                        style: GoogleFonts.chivo(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.mutedGrey,
+                                          letterSpacing: 2,
+                                        ),
+                                      ),
+                                      Text(
+                                        "$score",
+                                        style: GoogleFonts.chivo(
+                                          fontSize: 48,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.amberGold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Spacer to balance the back button width
+                    const SizedBox(width: 48),
                   ],
                 ),
               ),
-              // Middle: User Inputs
+              // Input chips with color-coded borders
+              Container(
+                height: 60,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: inputs.isEmpty
+                    ? Center(
+                        child: Text(
+                          "Enter your checkout...",
+                          style: GoogleFonts.chivo(color: AppColors.mutedGrey),
+                        ),
+                      )
+                    : Center(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: inputs.map((input) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 5),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.charcoal,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: _getChipBorderColor(input),
+                                      width: 2,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: _getChipBorderColor(input).withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      input,
+                                      style: GoogleFonts.chivo(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.pureWhite,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+              ),
+              // Dark keyboard with rounded top corners
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Wrap(
-                    spacing: 8.0,
-                    runSpacing: 0.0,
-                    children: inputs
-                        .map((input) => Chip(
-                              label: Text(input, style: TextStyle(color: colorScheme.primary)),
-                            ))
-                        .toList(),
-                  ),
-                ),
-              ),
-              // Bottom: Custom Keyboard
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                color: Colors.grey[200],
+                decoration: AppDecorations.keyboardContainer,
                 child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
                   child: Column(
                     children: [
-                      // Modifier Buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: ['Single', 'Double', 'Treble'].map((mod) {
-                          final remaining = score - _calculateInputSum();
-                          final bool isDisabled = (mod != 'Double' && _canFinishWithDouble(remaining));
-                          return ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: modifier == mod && !isDisabled ? Colors.green : null,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                              foregroundColor: isDisabled ? Colors.grey : modifier == mod ? Colors.white : null,
-                            ),
-                            onPressed: isDisabled
-                                ? null
-                                : () {
-                                    setState(() {
-                                      modifier = mod;
-                                    });
-                                  },
-                            child: Text(mod),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 8.0),
-                      // Number Buttons in Grid
-                      GridView.builder(
-                        shrinkWrap: true,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 5,
-                          crossAxisSpacing: 8.0,
-                          mainAxisSpacing: 8.0,
+                      // Segmented modifier selector (S/D/T)
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.richBlack,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        itemCount: numbers.length,
-                        itemBuilder: (context, index) {
-                          final number = numbers[index];
-                          final int value = modifier == 'Single'
-                              ? number
-                              : modifier == 'Double'
-                                  ? number * 2
-                                  : number * 3;
-                          final String multiplierText =
-                              modifier == 'Single' ? '' : '($value)';
-        
-                          final bool isDisabled = inputs.length == solution.length;
-        
-                          return ElevatedButton(
-                            onPressed: isDisabled
-                                ? null
-                                : () {
-                                    final prefix = modifier == 'Single'
-                                        ? ''
-                                        : modifier == 'Double'
-                                            ? 'D'
-                                            : 'T';
-                                    addInput('$prefix$number');
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.all(8.0),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '$number',
-                                  style: const TextStyle(
-                                      fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                                if (multiplierText.isNotEmpty)
-                                  Text(
-                                    multiplierText,
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.grey),
+                        child: Row(
+                          children: ['Single', 'Double', 'Treble'].map((mod) {
+                            final remaining = score - _calculateInputSum();
+                            final bool isLastDart = inputs.length == solution.length - 1;
+                            final bool isDisabled = (mod != 'Double' && isLastDart && _canFinishWithDouble(remaining));
+                            final bool isSelected = modifier == mod && !isDisabled;
+
+                            Color getModifierColor(String mod) {
+                              if (mod == 'Double') return AppColors.crimsonRed;
+                              if (mod == 'Treble') return AppColors.emeraldGreen;
+                              return AppColors.gunmetal;
+                            }
+
+                            return Expanded(
+                              child: GestureDetector(
+                                onTap: isDisabled
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          modifier = mod;
+                                        });
+                                      },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? getModifierColor(mod) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                              ],
+                                  child: Center(
+                                    child: Text(
+                                      mod[0], // S, D, or T
+                                      style: GoogleFonts.chivo(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDisabled
+                                            ? AppColors.mutedGrey.withOpacity(0.5)
+                                            : isSelected
+                                                ? AppColors.pureWhite
+                                                : AppColors.mutedGrey,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Number grid
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final crossAxisCount = constraints.maxWidth < 320 ? 4 : 5;
+                          return GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: 8.0,
+                              mainAxisSpacing: 8.0,
+                              childAspectRatio: 1.1,
                             ),
+                            itemCount: numbers.length,
+                            itemBuilder: (context, index) {
+                              final number = numbers[index];
+                              final int value = modifier == 'Single'
+                                  ? number
+                                  : modifier == 'Double'
+                                      ? number * 2
+                                      : number * 3;
+                              final String multiplierText =
+                                  modifier == 'Single' ? '' : '($value)';
+
+                              final bool isDisabled = inputs.length >= 3;
+
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: isDisabled
+                                      ? null
+                                      : () {
+                                          final prefix = modifier == 'Single'
+                                              ? ''
+                                              : modifier == 'Double'
+                                                  ? 'D'
+                                                  : 'T';
+                                          addInput('$prefix$number');
+                                        },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isDisabled
+                                          ? AppColors.richBlack.withOpacity(0.5)
+                                          : AppColors.richBlack,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isDisabled
+                                            ? AppColors.gunmetal.withOpacity(0.5)
+                                            : AppColors.gunmetal,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          '$number',
+                                          style: GoogleFonts.chivo(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDisabled
+                                                ? AppColors.mutedGrey.withOpacity(0.5)
+                                                : AppColors.pureWhite,
+                                          ),
+                                        ),
+                                        if (multiplierText.isNotEmpty)
+                                          Text(
+                                            multiplierText,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDisabled
+                                                  ? AppColors.mutedGrey.withOpacity(0.3)
+                                                  : AppColors.mutedGrey,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
-                      const SizedBox(height: 8.0),
-                      // Bull, Outer, Undo Buttons
+                      const SizedBox(height: 10),
+                      // Bull, Outer, Undo buttons
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          ElevatedButton(
-                            onPressed: inputs.length < solution.length ? () => addInput("Bull") : null,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
+                          // Bull button with outlined style
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: inputs.length < 3
+                                    ? AppColors.charcoal
+                                    : AppColors.richBlack.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: inputs.length < 3
+                                      ? AppColors.amberGold
+                                      : AppColors.gunmetal,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: inputs.length < 3
+                                      ? () => addInput("Bull")
+                                      : null,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Center(
+                                    child: Text(
+                                      "Bull (50)",
+                                      style: GoogleFonts.chivo(
+                                        fontWeight: FontWeight.bold,
+                                        color: inputs.length < 3
+                                            ? AppColors.pureWhite
+                                            : AppColors.mutedGrey.withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            child: const Text("Bull (50)"),
                           ),
-                          ElevatedButton(
-                            onPressed: !_canFinishWithDouble(score - _calculateInputSum()) && inputs.length < solution.length
-                                ? () => addInput("25")
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
+                          const SizedBox(width: 8),
+                          // Outer button
+                          Expanded(
+                            child: Container(
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: !_canFinishWithDouble(score - _calculateInputSum()) &&
+                                        inputs.length < 3
+                                    ? AppColors.richBlack
+                                    : AppColors.richBlack.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.gunmetal),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: !_canFinishWithDouble(score - _calculateInputSum()) &&
+                                          inputs.length < 3
+                                      ? () => addInput("25")
+                                      : null,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Center(
+                                    child: Text(
+                                      "Outer (25)",
+                                      style: GoogleFonts.chivo(
+                                        fontWeight: FontWeight.bold,
+                                        color: !_canFinishWithDouble(score - _calculateInputSum()) &&
+                                                inputs.length < 3
+                                            ? AppColors.pureWhite
+                                            : AppColors.mutedGrey.withOpacity(0.5),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                            child: const Text("Outer (25)"),
                           ),
-                          ElevatedButton.icon(
-                            onPressed: undoInput,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0),
+                          const SizedBox(width: 8),
+                          // Undo button
+                          Container(
+                            height: 50,
+                            width: 70,
+                            decoration: BoxDecoration(
+                              color: AppColors.richBlack,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.gunmetal),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: undoInput,
+                                borderRadius: BorderRadius.circular(12),
+                                child: const Center(
+                                  child: Icon(Icons.undo, color: AppColors.pureWhite),
+                                ),
                               ),
                             ),
-                            icon: const Icon(Icons.undo),
-                            label: const Text("Undo"),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8.0),
-                      // Submit Button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton(
-                            onPressed: submit,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.0),
+                      const SizedBox(height: 10),
+                      // Submit button
+                      Container(
+                        width: double.infinity,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: inputs.isEmpty ? null : AppColors.crimsonGradient,
+                          color: inputs.isEmpty ? AppColors.charcoal : null,
+                          borderRadius: BorderRadius.circular(14),
+                          border: inputs.isEmpty ? Border.all(color: AppColors.gunmetal) : null,
+                          boxShadow: inputs.isEmpty
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: AppColors.crimsonRed.withOpacity(0.4),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: inputs.isEmpty ? null : submit,
+                            borderRadius: BorderRadius.circular(14),
+                            child: Center(
+                              child: Text(
+                                "Submit",
+                                style: GoogleFonts.chivo(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: inputs.isEmpty ? AppColors.mutedGrey : AppColors.pureWhite,
+                                ),
                               ),
                             ),
-                            child: const Text(
-                              "Submit",
-                              style: TextStyle(fontSize: 18.0),
-                            ),
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
                 ),
+              ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _CircularTimerPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final double strokeWidth;
+
+  _CircularTimerPainter({
+    required this.progress,
+    required this.color,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // Draw arc starting from top (-90 degrees) going clockwise
+    final sweepAngle = 2 * math.pi * progress;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2, // Start from top
+      sweepAngle,
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CircularTimerPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth;
   }
 }

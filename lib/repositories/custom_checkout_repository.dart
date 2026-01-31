@@ -23,20 +23,22 @@ class CustomCheckoutRepository extends ChangeNotifier {
   }
 
   Future<Map<int, List<String>>> _loadCheckouts() async {
-    final prefs = await SharedPreferences.getInstance();
-    final checkoutsString = prefs.getString('checkouts');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final checkoutsString = prefs.getString('checkouts');
 
-    print(checkoutsString);
-
-    if (checkoutsString != null) {
-      final decoded = jsonDecode(checkoutsString) as Map<String, dynamic>;
-      return decoded.map((key, value) => MapEntry(
-            int.parse(key),
-            List<String>.from(value),
-          ));
+      if (checkoutsString != null) {
+        final decoded = jsonDecode(checkoutsString) as Map<String, dynamic>;
+        return decoded.map((key, value) => MapEntry(
+              int.parse(key),
+              List<String>.from(value),
+            ));
+      }
+    } catch (e) {
+      // Silently fail and return empty map on error
     }
 
-    return {}; // Return an empty map if no data exists.
+    return {}; // Return an empty map if no data exists or on error.
   }
 
   Future<void> addCheckout(int score, List<String> checkout) async {
@@ -47,11 +49,15 @@ class CustomCheckoutRepository extends ChangeNotifier {
   }
 
   Future<void> _saveCheckouts() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = jsonEncode(_checkouts.map(
-      (key, value) => MapEntry(key.toString(), value),
-    ));
-    await prefs.setString('checkouts', encoded);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(_checkouts.map(
+        (key, value) => MapEntry(key.toString(), value),
+      ));
+      await prefs.setString('checkouts', encoded);
+    } catch (e) {
+      // Silently fail on save error
+    }
   }
 
   Future<void> removeCheckout(int score) async {
