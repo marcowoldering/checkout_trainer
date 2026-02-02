@@ -1,7 +1,7 @@
 name: checout_trainer
-description: A new Flutter project.
+description: Train your checkout skills for darts
 publish_to: 'none'
-version: 0.0.1+1
+version: 1.0.1+1
 
 environment:
   sdk: ^3.1.1
@@ -10,8 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
   shared_preferences: ^2.2.3
+  url_launcher: ^6.2.1
   linear_timer: ^2.0.0
   google_fonts: ^6.1.0
+  fl_chart: ^0.66.0
 
   english_words: ^4.0.0
   provider: ^6.0.0
