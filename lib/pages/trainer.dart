@@ -430,7 +430,16 @@ class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin
 
     final int total = DartScoring.calculateScore(inputs);
     final int solutionTotal = DartScoring.calculateScore(solution);
-    final bool isCorrect = total == solutionTotal;
+
+    // Get the recommended checkout (custom checkout takes priority over default)
+    final recommendedCheckout = _repository.checkouts[score] ?? DartCheckouts.checkouts[score];
+    final bool matchesRecommended = recommendedCheckout != null &&
+        inputs.join(', ') == recommendedCheckout.join(', ');
+
+    // In strict mode, only accept exact match with recommended checkout
+    final bool isCorrect = _settings.strictMode
+        ? matchesRecommended
+        : total == solutionTotal;
 
     if (isCorrect) {
       _recordAttempt(true);
@@ -502,14 +511,24 @@ class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin
       HapticFeedback.mediumImpact();
     }
 
+    // Determine the appropriate error message
+    // In strict mode, if score matches but checkout doesn't, don't reveal the answer
+    final bool scoreMatches = total == solutionTotal;
+    final Widget incorrectContent = _settings.strictMode && scoreMatches
+        ? const Text(
+            "Your checkout is valid, but doesn't match the recommended sequence.",
+            style: TextStyle(color: AppColors.pureWhite),
+          )
+        : Text(
+            "You scored $total but needed $solutionTotal.",
+            style: const TextStyle(color: AppColors.pureWhite),
+          );
+
     showResultDialog(
       "Incorrect!",
       Icons.cancel,
       AppColors.crimsonRed,
-      Text(
-        "You scored $total but needed $solutionTotal.",
-        style: const TextStyle(color: AppColors.pureWhite),
-      ),
+      incorrectContent,
       "Try Again",
       () {
         Navigator.of(context).pop();
@@ -857,7 +876,7 @@ class _TrainerPageState extends State<TrainerPage> with TickerProviderStateMixin
                   Expanded(
                     child: Container(
                     decoration: AppDecorations.keyboardContainer,
-                    child: Padding(
+                    child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
                       child: Column(
                         children: [

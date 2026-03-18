@@ -101,6 +101,15 @@ class _SettingsPageState extends State<SettingsPage> {
                           subtitle: _getDartCountLabel(settings.dartCountFilter),
                           child: _buildDartCountSelector(settings),
                         ),
+                        const SizedBox(height: 12),
+
+                        // Strict Mode
+                        _buildToggleCard(
+                          title: 'Strict Mode',
+                          subtitle: 'Only accept recommended checkouts',
+                          value: settings.strictMode,
+                          onChanged: (value) => settings.setStrictMode(value),
+                        ),
                         const SizedBox(height: 24),
 
                         _buildSectionHeader('Feedback'),
@@ -113,11 +122,6 @@ class _SettingsPageState extends State<SettingsPage> {
                           value: settings.hapticEnabled,
                           onChanged: (value) => settings.setHapticEnabled(value),
                         ),
-                        const SizedBox(height: 24),
-
-                        _buildSectionHeader('Support'),
-                        const SizedBox(height: 12),
-                        _buildSupportCard(),
                         const SizedBox(height: 24),
 
                         _buildSectionHeader('Data'),
@@ -433,73 +437,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSupportCard() {
-    return GestureDetector(
-      onTap: () async {
-        if (context.read<SettingsRepository>().hapticEnabled) {
-          HapticFeedback.lightImpact();
-        }
-        final url = Uri.parse('https://buymeacoffee.com/marcowoldering');
-        if (await canLaunchUrl(url)) {
-          await launchUrl(url, mode: LaunchMode.externalApplication);
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.charcoal,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.gunmetal),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.amberGold.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.coffee,
-                color: AppColors.amberGold,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Buy Me a Coffee',
-                    style: GoogleFonts.chivo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.pureWhite,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Support the development of this app',
-                    style: GoogleFonts.chivo(
-                      fontSize: 12,
-                      color: AppColors.mutedGrey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              color: AppColors.mutedGrey,
-              size: 16,
-            ),
-          ],
-        ),
       ),
     );
   }

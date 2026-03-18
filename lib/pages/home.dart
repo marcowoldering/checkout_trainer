@@ -124,49 +124,9 @@ class HomePage extends StatelessWidget {
                       ),
                     ),
                     const Spacer(flex: 2),
-                    // Support button
-                    _buildSupportButton(),
                     const SizedBox(height: 24),
                   ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSupportButton() {
-    return GestureDetector(
-      onTap: () async {
-        final url = Uri.parse('https://buymeacoffee.com/marcowoldering');
-        if (await canLaunchUrl(url)) {
-          await launchUrl(url, mode: LaunchMode.externalApplication);
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.charcoal.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.gunmetal),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.coffee,
-              color: AppColors.amberGold,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Buy Me a Coffee',
-              style: GoogleFonts.chivo(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.mutedGrey,
               ),
             ),
           ],

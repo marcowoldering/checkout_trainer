@@ -7,12 +7,14 @@ class SettingsRepository extends ChangeNotifier {
   static const String _keyMaxScore = 'settings_max_score';
   static const String _keyDartCountFilter = 'settings_dart_count_filter';
   static const String _keyHapticEnabled = 'settings_haptic_enabled';
+  static const String _keyStrictMode = 'settings_strict_mode';
 
   int _timerDuration = 30;
   int _minScore = 2;
   int _maxScore = 170;
   String _dartCountFilter = 'all';
   bool _hapticEnabled = true;
+  bool _strictMode = false;
   bool _initialized = false;
 
   int get timerDuration => _timerDuration;
@@ -20,6 +22,7 @@ class SettingsRepository extends ChangeNotifier {
   int get maxScore => _maxScore;
   String get dartCountFilter => _dartCountFilter;
   bool get hapticEnabled => _hapticEnabled;
+  bool get strictMode => _strictMode;
   bool get initialized => _initialized;
 
   Duration get timerDurationValue => Duration(seconds: _timerDuration);
@@ -34,6 +37,7 @@ class SettingsRepository extends ChangeNotifier {
       _maxScore = prefs.getInt(_keyMaxScore) ?? 170;
       _dartCountFilter = prefs.getString(_keyDartCountFilter) ?? 'all';
       _hapticEnabled = prefs.getBool(_keyHapticEnabled) ?? true;
+      _strictMode = prefs.getBool(_keyStrictMode) ?? false;
       _initialized = true;
       notifyListeners();
     } catch (e) {
@@ -72,6 +76,12 @@ class SettingsRepository extends ChangeNotifier {
     _hapticEnabled = enabled;
     notifyListeners();
     await _save(_keyHapticEnabled, enabled);
+  }
+
+  Future<void> setStrictMode(bool enabled) async {
+    _strictMode = enabled;
+    notifyListeners();
+    await _save(_keyStrictMode, enabled);
   }
 
   Future<void> _save(String key, dynamic value) async {
