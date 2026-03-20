@@ -1,7 +1,7 @@
 name: checout_trainer
 description: Train your checkout skills for darts
 publish_to: 'none'
-version: 1.1.0+2
+version: 1.1.0+3
 
 environment:
   sdk: ^3.1.1
@@ -25,10 +25,12 @@ dev_dependencies:
  
   flutter_lints: ^2.0.0
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
-  ios: true
+  ios: false
   image_path: "assets/icon/checkout_trainer_logo.png"
+  adaptive_icon_background: "#1a1a1a"
+  adaptive_icon_foreground: "assets/icon/checkout_trainer_logo.png"
 
 flutter:
   uses-material-design: true

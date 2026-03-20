@@ -1,4 +1,4 @@
-package com.example.checkout_trainer
+package nl.marcowoldering.checkouttrainer
 
 import io.flutter.embedding.android.FlutterActivity
 

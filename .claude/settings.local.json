@@ -13,7 +13,17 @@
       "Bash(flutter doctor:*)",
       "Bash(open:*)",
       "Bash(flutter upgrade:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(export ANDROID_HOME=~/Library/Android/sdk)",
+      "Bash(export:*)",
+      "Bash($ANDROID_HOME/emulator/emulator -list-avds)",
+      "Bash($ANDROID_HOME/platform-tools/adb devices:*)",
+      "Bash(flutter pub run:*)",
+      "Bash(dart run:*)",
+      "Bash(test:*)",
+      "Bash(flutter devices:*)",
+      "Bash(adb:*)",
+      "Bash(/Users/marcowoldering/Library/Android/sdk/platform-tools/adb -s emulator-5554 logcat -d)"
     ]
   }
 }
